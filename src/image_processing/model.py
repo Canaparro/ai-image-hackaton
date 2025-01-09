@@ -1,9 +1,11 @@
 import base64
+import io
 import json
 import logging
 import os
 
 import requests
+from PIL import Image
 from dotenv import load_dotenv
 from requests import Response
 
@@ -12,8 +14,22 @@ TOKEN = os.environ.get("HUGGING_FACE_TOKEN")
 AI_MODEL_NAME = "meta-llama/Llama-3.2-11B-Vision-Instruct"
 
 
+def convert_image_type(image_path: str) -> bytes:
+    with Image.open(image_path) as image:
+        buffer = io.BytesIO()
+        converted = image.convert("RGBA")
+        converted.save(buffer, format="PNG")
+        buffer.seek(0)
+        return buffer.getvalue()
+
+
 def create_image_payload(image_path: str) -> str:
-    image_bytes = load_image(image_path)
+    if not image_path.endswith(".png"):
+        image_bytes = convert_image_type(image_path)
+    else:
+        image_bytes = load_image(image_path)
+
+
     image_data_url = format_image(image_bytes)
     return image_data_url
 
@@ -30,6 +46,7 @@ def load_image(image_path: str) -> bytes:
 
 
 def evaluate_image(image_data_url: str, prompt: str) -> str:
+    # TODO: model is returning only 148 tokens, so it is cutting off the response
     payload = {
         "messages": [
             {
@@ -57,6 +74,6 @@ def make_request(payload: dict) -> Response:
 
 
 if __name__ == "__main__":
-    image = create_image_payload("../../images/famous_alien.png")
+    image = create_image_payload("../../images/brand.jpg")
     result = evaluate_image(image, "describe what you see in the image, including known people")
     print(result)
